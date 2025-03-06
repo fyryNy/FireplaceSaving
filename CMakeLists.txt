@@ -4,8 +4,8 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 
 include(target_add_versioninfo)
 
-project(UnionPlugin
-	DESCRIPTION "Union plugin for Gothic Games"
+project(FireplaceSaving
+	DESCRIPTION "Plugin allows to save the game only near a fireplace"
 	VERSION 1.0.0.0
 )
 

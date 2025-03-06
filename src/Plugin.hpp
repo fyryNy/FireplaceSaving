@@ -2,67 +2,94 @@
 
 namespace GOTHIC_NAMESPACE 
 {
-	// NOTE! Callbacks won't be called by default, you need to uncomment
-	// hooks that will call specific callback
+	std::vector<zVEC3> fireplaces;
 
-	void Game_EntryPoint()
+	bool CanSave()
 	{
-
+		for(auto fireplace : fireplaces)
+		{
+			if(static_cast<int>(player->GetPositionWorld().Distance(fireplace)) <= 250)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	void Game_Init()
 	{
-
+		
 	}
 
 	void Game_Exit()
 	{
-
-	}
-
-	void Game_PreLoop()
-	{
-
+		fireplaces.clear();
 	}
 
 	void Game_Loop()
 	{
+		
+		if(!ogame || !player || ogame->singleStep)
+		{
+			return;
+		}
 
-	}
+		auto canSave = CanSave();
 
-	void Game_PostLoop()
-	{
+		zSTRING saveMenu = gameMan->menu_save_savegame ? gameMan->menu_save_savegame->name : "MENU_SAVEGAME_SAVE";
 
-	}
-
-	void Game_MenuLoop()
-	{
-
-	}
-
-	void Game_SaveBegin()
-	{
-
-	}
-
-	void Game_SaveEnd()
-	{
-
-	}
-
-	void LoadBegin()
-	{
-
+		for ( int i = 0; i < zCMenuItem::itemList.GetNum(); i++ ) {
+			zCMenuItem* item = zCMenuItem::itemList[i];
+			if ( item->m_parOnSelAction_S[0] == saveMenu ) {
+				if((item->m_parItemFlags & IT_DISABLED) != IT_DISABLED && !canSave)
+				{
+					item->m_parItemFlags = item->m_parItemFlags | IT_DISABLED;
+				}
+				else if ((item->m_parItemFlags & IT_DISABLED) == IT_DISABLED && canSave)
+				{
+					item->m_parItemFlags = item->m_parItemFlags &~IT_DISABLED;
+				}
+			}
+		}
 	}
 
 	void LoadEnd()
 	{
+		fireplaces.clear();
+		zCArray<zCVob*> voblist;
+		ogame->GetGameWorld()->SearchVobListByBaseClass(zCVob::classDef, voblist, nullptr);
 
-	}
+		for(int i = 0; i< voblist.GetNumInList(); i++)
+		{
+			auto vob = voblist[i];
 
-	void Game_LoadBegin_NewGame()
-	{
-		LoadBegin();
+			if(!vob)
+			{
+				continue;
+			}
+
+			if(!vob->visual)
+			{
+				continue;
+			}
+
+			if(vob->visual->GetVisualName().IsEmpty())
+			{
+				continue;
+			}
+
+			auto visualName = vob->visual->GetVisualName();
+			visualName.Upper();
+			
+			if(visualName.Search("NW_MISC_FIREPLACE", 1U) == -1 
+				&& visualName.Search("FIREPLACE_GROUND", 1U) == -1 
+			)
+			{
+				continue;
+			}
+
+			fireplaces.push_back(vob->GetPositionWorld());
+		}
 	}
 
 	void Game_LoadEnd_NewGame()
@@ -70,19 +97,9 @@ namespace GOTHIC_NAMESPACE
 		LoadEnd();
 	}
 
-	void Game_LoadBegin_SaveGame()
-	{
-		LoadBegin();
-	}
-
 	void Game_LoadEnd_SaveGame()
 	{
 		LoadEnd();
-	}
-
-	void Game_LoadBegin_ChangeLevel()
-	{
-		LoadBegin();
 	}
 
 	void Game_LoadEnd_ChangeLevel()
@@ -90,168 +107,56 @@ namespace GOTHIC_NAMESPACE
 		LoadEnd();
 	}
 
-	void Game_LoadBegin_TriggerChangeLevel()
+	void Game_LoadEnd_Trigger()
 	{
-
+		LoadEnd();
 	}
 
-	void Game_LoadEnd_TriggerChangeLevel()
+	class oCPluginPerFrameCallback : public zCWorldPerFrameCallback
 	{
+		virtual void DoWorldPerFrameCallback(zCWorld* world, zCCamera* cam)
+		{
+			Game_Loop();
+		}
+	} pluginPerFrameCallback;
 
-	}
-
-	void Game_Pause()
+	void __fastcall Game_Init_Hook()
 	{
-
-	}
-
-	void Game_Unpause()
-	{
-
-	}
-
-	void Game_DefineExternals()
-	{
-
-	}
-
-	void Game_ApplySettings()
-	{
-
-	}
-
-	/*int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd);
-	auto Hook_WinMain = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x004F3E10, 0x00506810, 0x005000F0, 0x00502D70)), &WinMain, Union::HookType::Hook_Detours);
-	int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-	{
-		Game_EntryPoint();
-		return Hook_WinMain(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
-	}*/
-
-	/*void __fastcall oCGame_Init(oCGame* self, void* vtable);
-	auto Hook_oCGame_Init = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x00636F50, 0x0065D480, 0x006646D0, 0x006C1060)), &oCGame_Init, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_Init(oCGame* self, void* vtable)
-	{
-		Hook_oCGame_Init(self, vtable);
 		Game_Init();
-	}*/
+		ogame->GetWorld()->RegisterPerFrameCallback(&pluginPerFrameCallback);
+	}
+	auto PartialHook__Game_Init = ::Union::CreatePartialHook(reinterpret_cast<void*>(zSwitch(0x00637BB6, 0x0065DFFA, 0x00665112, 0x006C1BFF)), &Game_Init_Hook);
+#if ENGINE >= Engine_G2
+	auto PartialHook__Game_Init2 = ::Union::CreatePartialHook(reinterpret_cast<void*>(zSwitch(0x00000000, 0x00000000, 0x006650F6, 0x006C1C1B)), &Game_Init_Hook);
+#endif
 
-	/*void __fastcall CGameManager_Done(CGameManager* self, void* vtable);
-	auto Hook_CGameManager_Done = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x00424850, 0x00427310, 0x004251A0, 0x004254E0)), &CGameManager_Done, Union::HookType::Hook_Detours);
-	void __fastcall CGameManager_Done(CGameManager* self, void* vtable)
+	void __fastcall Game_Exit_Hook()
 	{
 		Game_Exit();
-		Hook_CGameManager_Done(self, vtable);
-	}*/
+	}
+	auto PartialHook__Game_Exit = ::Union::CreatePartialHook(reinterpret_cast<void*>(zSwitch(0x00424850 + 7, 0x00427310 + 7, 0x004251A0 + 7, 0x004254E0 + 7)), &Game_Exit_Hook);
 
-	/*void __fastcall oCGame_Render(oCGame* self, void* vtable);
-	auto Hook_oCGame_Render = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x0063DBE0, 0x006648F0, 0x0066B930, 0x006C86A0)), &oCGame_Render, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_Render(oCGame* self, void* vtable)
+	void __fastcall Game_LoadEnd_NewGame_Hook()
 	{
-		Game_PreLoop();
-		Hook_oCGame_Render(self, vtable);
-		Game_PostLoop();
-	}*/
-
-	/*void __fastcall zCWorld_Render(Union::Registers& reg);
-	auto Partial_zCWorld_Render = Union::CreatePartialHook(reinterpret_cast<void*>(zSwitch(0x005F409C, 0x00614F4C, 0x0061A1F0, 0x00621940)), &zCWorld_Render);
-	void __fastcall zCWorld_Render(Union::Registers& reg)
-	{
-		Game_Loop();
-	}*/
-
-	/*void __fastcall zCMenu_Render(zCMenu* self, void* vtable);
-	auto Hook_zCMenu_Render = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x004D0DA0, 0x004E14E0, 0x004DB270, 0x004DDC20)), &zCMenu_Render, Union::HookType::Hook_Detours);
-	void __fastcall zCMenu_Render(zCMenu* self, void* vtable)
-	{
-		Hook_zCMenu_Render(self, vtable);
-		Game_MenuLoop();
-	}*/
-
-	/*void __fastcall oCGame_WriteSaveGame(oCGame* self, void* vtable, int slot, zBOOL saveGlobals);
-	auto Hook_oCGame_WriteSaveGame = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x0063AD80, 0x00661680, 0x006685D0, 0x006C5250)), &oCGame_WriteSaveGame, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_WriteSaveGame(oCGame* self, void* vtable, int slot, zBOOL saveGlobals)
-	{
-		Game_SaveBegin();
-		Hook_oCGame_WriteSaveGame(self, vtable, slot, saveGlobals);
-		Game_SaveEnd();
-	}*/
-
-	/*void __fastcall oCGame_LoadGame(oCGame* self, void* vtable, int slot, const zSTRING& levelPath);
-	auto Hook_oCGame_LoadGame = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x0063C070, 0x00662B20, 0x00669970, 0x006C65A0)), &oCGame_LoadGame, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_LoadGame(oCGame* self, void* vtable, int slot, const zSTRING& levelPath)
-	{
-		Game_LoadBegin_NewGame();
-		Hook_oCGame_LoadGame(self, vtable, slot, levelPath);
 		Game_LoadEnd_NewGame();
-	}*/
+	}
+	auto PartialHook_Game_LoadEnd_NewGame = ::Union::CreatePartialHook((void*)(zSwitch(0x0063C28C, 0x00662D5A, 0x00669B8C, 0x006C67BC)), &Game_LoadEnd_NewGame_Hook);
 
-	/*void __fastcall oCGame_LoadSaveGame(oCGame* self, void* vtable, int slot, zBOOL loadGlobals);
-	auto Hook_oCGame_LoadSaveGame = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x0063C2A0, 0x00662D60, 0x00669BA0, 0x006C67D0)), &oCGame_LoadSaveGame, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_LoadSaveGame(oCGame* self, void* vtable, int slot, zBOOL loadGlobals)
+	void __fastcall Game_LoadEnd_SaveGame_Hook()
 	{
-		Game_LoadBegin_SaveGame();
-		Hook_oCGame_LoadSaveGame(self, vtable, slot, loadGlobals);
 		Game_LoadEnd_SaveGame();
-	}*/
+	}
+	auto PartialHook_Game_LoadEnd_SaveGame = ::Union::CreatePartialHook((void*)(zSwitch(0x0063CD50, 0x0066393C, 0x0066A653, 0x006C7283)), &Game_LoadEnd_SaveGame_Hook);
 
-	/*void __fastcall oCGame_ChangeLevel(oCGame* self, void* vtable, const zSTRING& levelpath, const zSTRING& startpoint);
-	auto Hook_Game_Load_ChangeLevel = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x0063CD60, 0x00663950, 0x0066A660, 0x006C7290)), &oCGame_ChangeLevel, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_ChangeLevel(oCGame* self, void* vtable, const zSTRING& levelpath, const zSTRING& startpoint)
+	void __fastcall Game_LoadEnd_ChangeLevel_Hook()
 	{
-		Game_LoadBegin_ChangeLevel();
-		Hook_Game_Load_ChangeLevel(self, vtable, levelpath, startpoint);
 		Game_LoadEnd_ChangeLevel();
-	}*/
-
-	/*void __fastcall oCGame_TriggerChangeLevel(oCGame* self, void* vtable, const zSTRING& levelpath, const zSTRING& startpoint);
-	auto Hook_oCGame_TriggerChangeLevel = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x0063D480, 0x00664100, 0x0066AD80, 0x006C7AF0)), &oCGame_TriggerChangeLevel, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_TriggerChangeLevel(oCGame* self, void* vtable, const zSTRING& levelpath, const zSTRING& startpoint)
-	{
-		Game_LoadBegin_TriggerChangeLevel();
-		Hook_oCGame_TriggerChangeLevel(self, vtable, levelpath, startpoint);
-		Game_LoadEnd_TriggerChangeLevel();
-	}*/
-
-/*#if ENGINE <= Engine_G1A
-	void __fastcall oCGame_Pause_G1(oCGame* self, void* vtable);
-	auto Hook_oCGame_Pause = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x0063DF50, 0x00664CD0, 0, 0)), &oCGame_Pause_G1, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_Pause_G1(oCGame* self, void* vtable)
-	{
-		Hook_oCGame_Pause(self, vtable);
-		Game_Pause();
 	}
-#else
-	void __fastcall oCGame_Pause_G2(oCGame* self, void* vtable, zBOOL sessionPaused);
-	auto Hook_oCGame_Pause = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0, 0, 0x0066BD50, 0x006C8AD0)), &oCGame_Pause_G2, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_Pause_G2(oCGame* self, void* vtable, zBOOL sessionPaused)
+	auto PartialHook_Game_LoadEnd_ChangeLevel = ::Union::CreatePartialHook((void*)(zSwitch(0x0063D46B, 0x006640F0, 0x0066AD6B, 0x006C7ADD)), &Game_LoadEnd_ChangeLevel_Hook);
+
+	void __fastcall Game_LoadEnd_Trigger_Hook()
 	{
-		Hook_oCGame_Pause(self, vtable, sessionPaused);
-		Game_Pause();
+		Game_LoadEnd_Trigger();
 	}
-#endif*/
-
-	/*void __fastcall oCGame_Unpause(oCGame* self, void* vtable);
-	auto Hook_oCGame_Unpause = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x0063E1D0, 0x00664F80, 0x0066BFD0, 0x006C8D50)), &oCGame_Unpause, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_Unpause(oCGame* self, void* vtable)
-	{
-		Hook_oCGame_Unpause(self, vtable);
-		Game_Unpause();
-	}*/
-
-	/*void __fastcall oCGame_DefineExternals_Ulfi(oCGame* self, void* vtable, zCParser* parser);
-	auto Hook_oCGame_DefineExternals_Ulfi = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x006495B0, 0x006715F0, 0x00677A00, 0x006D4780)), &oCGame_DefineExternals_Ulfi, Union::HookType::Hook_Detours);
-	void __fastcall oCGame_DefineExternals_Ulfi(oCGame* self, void* vtable, zCParser* parser)
-	{
-		Hook_oCGame_DefineExternals_Ulfi(self, vtable, parser);
-		Game_DefineExternals();
-	}*/
-
-	/*void __fastcall CGameManager_ApplySomeSettings(CGameManager* self, void* vtable);
-	auto Hook_CGameManager_ApplySomeSettings = Union::CreateHook(reinterpret_cast<void*>(zSwitch(0x004267C0, 0x004291E0, 0x00427370, 0x004276B0)), &CGameManager_ApplySomeSettings, Union::HookType::Hook_Detours);
-	void __fastcall CGameManager_ApplySomeSettings(CGameManager* self, void* vtable)
-	{
-		Hook_CGameManager_ApplySomeSettings(self, vtable);
-		Game_ApplySettings();
-	}*/
+	auto PartialHook_Game_LoadEnd_Trigger = ::Union::CreatePartialHook((void*)(zSwitch(0x0063D6BE, 0x0066433E, 0x0066AFBE, 0x006C7D2E)), &Game_LoadEnd_Trigger_Hook);
 }
