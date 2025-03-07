@@ -84,6 +84,7 @@ namespace GOTHIC_NAMESPACE
 			
 			if(visualName.Search("NW_MISC_FIREPLACE", 1U) == -1 
 				&& visualName.Search("FIREPLACE_GROUND", 1U) == -1 
+				&& visualName.Search("OC_FIREPLACE", 1U) == -1 
 			)
 			{
 				continue;
