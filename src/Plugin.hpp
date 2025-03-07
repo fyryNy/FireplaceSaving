@@ -28,7 +28,6 @@ namespace GOTHIC_NAMESPACE
 
 	void Game_Loop()
 	{
-		
 		if(!ogame || !player || ogame->singleStep)
 		{
 			return;
@@ -38,9 +37,11 @@ namespace GOTHIC_NAMESPACE
 
 		zSTRING saveMenu = gameMan->menu_save_savegame ? gameMan->menu_save_savegame->name : "MENU_SAVEGAME_SAVE";
 
-		for ( int i = 0; i < zCMenuItem::itemList.GetNum(); i++ ) {
+		for (int i = 0; i < zCMenuItem::itemList.GetNum(); i++)
+		{
 			zCMenuItem* item = zCMenuItem::itemList[i];
-			if ( item->m_parOnSelAction_S[0] == saveMenu ) {
+			if (item->m_parOnSelAction_S[0] == saveMenu)
+			{
 				if((item->m_parItemFlags & IT_DISABLED) != IT_DISABLED && !canSave)
 				{
 					item->m_parItemFlags = item->m_parItemFlags | IT_DISABLED;
